@@ -19,7 +19,7 @@
 <div class="card">
 <div class="card-body">
 <h6 class="card-title text-white">All Uploaded Images</h6>
-<!--<p class="text-muted mb-3">Read the <a href="https://datatables.net/" target="_blank"> Official DataTables Documentation </a>for a full list of instructions and other options.</p>-->
+
 <div class="table-responsive">
   <table id="dataTableExample" class="table">
     <thead>
@@ -38,7 +38,7 @@
         <td>{{ $item->created_at }}</td>
         <td>
         <a href="{{ route('view.image',$item->id) }}" class="btn btn-inverse-warning">View Facial Analysis</a>
-        <a href="{{ route('view.news',$item->id) }}"  class="btn btn-inverse-warning" target=”_blank”>View News</a>
+        <a href="{{ route('view.news',$item->id) }}"  class="btn btn-inverse-danger" target=”_blank”>View News</a>
 
         </td>
       </tr>
