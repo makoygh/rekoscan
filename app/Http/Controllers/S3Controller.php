@@ -26,39 +26,54 @@ public function uploadToS3(Request $request){
       ]);
 
 
+      try {
+        //Code that may throw an Exception
 
-    //Upload the file to S3 bucket
-    if($request->hasFile('fileName')){
-        $imgfile = $request->file('fileName');
-        $imgfilename = date('YmdHi').'_'.$imgfile->getClientOriginalName();
-        // upload to S3 bucket
-        $imgpath = $request->file('fileName')->storeAs(
-            'images',
-            $imgfilename,
-            's3'
+                //Upload the file to S3 bucket
+            if($request->hasFile('fileName')){
+                $imgfile = $request->file('fileName');
+                $imgfilename = date('YmdHi').'_'.$imgfile->getClientOriginalName();
+                // upload to S3 bucket
+                $imgpath = $request->file('fileName')->storeAs(
+                    'images',
+                    $imgfilename,
+                    's3'
+                );
+
+            }
+
+            //upload the file locally
+            if($request->hasFile('fileName')){
+                $imgLocalfile = $request->file('fileName');
+                //$imgLocalfilename = date('YmdHi').'_'.$imgLocalfile->getClientOriginalName();
+                $imgLocalfile->move(public_path('upload/s3'),$imgfilename); // local upload
+            }    
+
+            // insert record to DB
+            s3files::insert([
+                'img_name' => $request->imgName,
+                'img_filename' => $imgpath,
+                'img_localfile' => $imgfilename,
+                'created_at' => now()
+            ]);
+
+
+            $notification = array(
+                'message' => 'Image Uploaded Successfully',
+                'alert-type' => 'success'
+            );
+            
+    } catch (Exception $error) {
+
+        $notification = array(
+            'message' => 'Uploading of Image Failed.',
+            'alert-type' => 'error'
         );
-
+     
+        // Either form a friendlier message to display to the user OR redirect them to a failure page
     }
 
-    //upload the file locally
-    if($request->hasFile('fileName')){
-        $imgLocalfile = $request->file('fileName');
-        $imgLocalfile->move(public_path('upload/s3'),$imgfilename); // local upload
-    }    
-
-    // insert record to DB
-    s3files::insert([
-        'img_name' => $request->imgName,
-        'img_filename' => $imgpath,
-        'img_localfile' => $imgfilename,
-        'created_at' => now()
-    ]);
-
-
-    $notification = array(
-        'message' => 'Image Uploaded Successfully',
-        'alert-type' => 'success'
-    );
+    
     
 
     // page refresh
@@ -82,6 +97,8 @@ public function uploadToS3(Request $request){
 
     // View facial analysis page
     public function viewImage($id){
+
+        //$imageData = s3files::findOrFail($id);
 
         $imageData = DB::table('s3files')
         ->where('s3files.id', '=',$id)
