@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('img_name');
             $table->string('img_filename');
             $table->string('img_localfile')->nullable();
-            $table->string('img_analysis')->nullable();
+            $table->longText('img_analysis')->nullable();
             $table->longtext('img_chatgpt_title')->nullable();
             $table->longtext('img_chatgpt_content')->nullable();
             $table->timestamp('created_at')->nullable();
