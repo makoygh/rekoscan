@@ -7,8 +7,8 @@ use App\Models\s3files;
 use Illuminate\Support\Facades\Auth;
 
 //use Aws\S3\S3Client;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use DB;
 use Illuminate\Support\Str;
 
 
@@ -103,27 +103,34 @@ class S3Controller extends Controller
 
         //$imageData = s3files::findOrFail($id);
 
+
         $imageData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
             ->select('s3files.*')
             ->get();
 
-        $imageData;
+        $file_name = $imageData->img_filename;
 
-        $path = 'face-analyses/' . $filename;
+        $path = $this->transformPath($file_name);
         if (Storage::disk('s3')->exists($path)) {
             $contents = Storage::disk('s3')->get($path);
-            return $contents;
-        } else {
-            return "File does not exist.";
+            DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->update(['img_analysis' => $contents]);
         }
+
+        $imageData = DB::table('s3files')
+            ->where('s3files.id', '=', $id)
+            ->select('s3files.*')
+            ->get();
 
         return view('view_image', compact('imageData'));
 
     }
 
 
-    private function transformPath($originalPath) {
+    private function transformPath($originalPath): array|string
+    {
         // Remove the 'images/' prefix and change the file extension from .jpg to .txt
         $newPath = str_replace('images/', 'face-analyses/', $originalPath);
         $newPath = substr_replace($newPath, '.txt', strrpos($newPath, '.'));
