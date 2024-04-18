@@ -5,7 +5,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                   
+
 
                 <div class="page-content">
 
@@ -19,7 +19,7 @@
           <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <img class="img-xs rounded-circle" src="{{ asset('../img/rekoscan_logo_icon.png') }}" class="block h-9 w-auto fill-current " alt="">													
+                <img class="img-xs rounded-circle" src="{{ asset('../img/rekoscan_logo_icon.png') }}" class="block h-9 w-auto fill-current " alt="">
                 <div class="ms-2 text-white">
                   <p>RekoScan News</p>
 
@@ -54,8 +54,8 @@
 
     </div>
   </div>
-  @endforeach 
-  <!-- left wrapper end -->    
+  @endforeach
+  <!-- left wrapper end -->
   <!-- middle wrapper start -->
   <div class="d-none d-md-block col-md-8 col-xl-4 middle-wrapper">
     <div class="card rounded">
@@ -89,7 +89,7 @@
         </div>
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">smiling:</label>
-          <p class="text-muted">Lorem ipsum</p>
+          <p class="text-muted">{{ $item->img_analysis }}</p>
         </div>
         <div class="mt-3 d-flex social-links">
           <a href="javascript:;" class="btn btn-icon border btn-xs me-2">
@@ -106,7 +106,7 @@
     </div>
   </div>
   <!-- middle wrapper end -->
-  
+
 
 </div>
 
@@ -117,7 +117,7 @@
             </div>
             <footer class="py-16 text-center text-sm text-black dark:text-white/70">
                         Developed by Team RekoScan | Laravel v{{ Illuminate\Foundation\Application::VERSION }} (PHP v{{ PHP_VERSION }})
-                    </footer>               
+                    </footer>
         </div>
     </div>
 </x-app-layout>
