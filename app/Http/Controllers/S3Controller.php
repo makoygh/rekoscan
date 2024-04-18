@@ -49,8 +49,7 @@ class S3Controller extends Controller
                     'img_name' => $request->imgName,
                     'img_filename' => $imgpath,
                     'img_localfile' => $imgfilename,
-                    'created_at' => now(),
-                    'xref' => $uuid
+                    'created_at' => now()
                 ]);
             }
 
