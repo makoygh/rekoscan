@@ -31,7 +31,7 @@ class S3Controller extends Controller
         try {
             //Code that may throw an Exception
 
-            $uuid = Str::uuid()->toString();
+            $uuid = Str::random(5);
 
             //Upload the file to S3 bucket
             if ($request->hasFile('fileName')) {
@@ -108,10 +108,28 @@ class S3Controller extends Controller
             ->select('s3files.*')
             ->get();
 
+        $imageData;
+
+        $path = 'face-analyses/' . $filename;
+        if (Storage::disk('s3')->exists($path)) {
+            $contents = Storage::disk('s3')->get($path);
+            return $contents;
+        } else {
+            return "File does not exist.";
+        }
+
         return view('view_image', compact('imageData'));
 
     }
 
+
+    private function transformPath($originalPath) {
+        // Remove the 'images/' prefix and change the file extension from .jpg to .txt
+        $newPath = str_replace('images/', 'face-analyses/', $originalPath);
+        $newPath = substr_replace($newPath, '.txt', strrpos($newPath, '.'));
+
+        return $newPath;
+    }
 
     // View news page
     public function viewNews($id)
