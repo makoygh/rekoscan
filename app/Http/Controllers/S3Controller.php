@@ -107,22 +107,24 @@ class S3Controller extends Controller
         $imageData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
             ->select('s3files.*')
-            ->get();
+            ->first();
 
-        $file_name = $imageData->img_filename;
+        if($imageData) {
+            $file_name = $imageData->img_filename;
 
-        $path = $this->transformPath($file_name);
-        if (Storage::disk('s3')->exists($path)) {
-            $contents = Storage::disk('s3')->get($path);
-            DB::table('s3files')
+            $path = $this->transformPath($file_name);
+            if (Storage::disk('s3')->exists($path)) {
+                $contents = Storage::disk('s3')->get($path);
+                DB::table('s3files')
+                    ->where('s3files.id', '=', $id)
+                    ->update(['img_analysis' => $contents]);
+            }
+
+            $imageData = DB::table('s3files')
                 ->where('s3files.id', '=', $id)
-                ->update(['img_analysis' => $contents]);
+                ->select('s3files.*')
+                ->get();
         }
-
-        $imageData = DB::table('s3files')
-            ->where('s3files.id', '=', $id)
-            ->select('s3files.*')
-            ->get();
 
         return view('view_image', compact('imageData'));
 
