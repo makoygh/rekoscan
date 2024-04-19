@@ -2,20 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use App\Models\s3files;
 use Illuminate\Support\Facades\Auth;
 
 //use Aws\S3\S3Client;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use DB;
 use Illuminate\Support\Str;
+use GuzzleHttp\Client;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
-
+/**
+ * Uploads an image file to the S3 bucket and saves the file details to the database.
+ *
+ * @param Request $request The request object.
+ * @return \Illuminate\Http\RedirectResponse The redirect response.
+ */
 class S3Controller extends Controller
 {
 
-// Save the files details to DB and upload the image to S3 bucket and a local copy
+    /**
+     * Uploads an image file to the S3 bucket and saves the file details to the database
+     *
+     * @param Request $request The HTTP request containing the image file and associated data
+     * @return RedirectResponse
+     */
     public function uploadToS3(Request $request)
     {
 
@@ -31,7 +45,7 @@ class S3Controller extends Controller
         try {
             //Code that may throw an Exception
 
-            $uuid = Str::uuid()->toString();
+            $uuid = Str::random(5);
 
             //Upload the file to S3 bucket
             if ($request->hasFile('fileName')) {
@@ -49,8 +63,7 @@ class S3Controller extends Controller
                     'img_name' => $request->imgName,
                     'img_filename' => $imgpath,
                     'img_localfile' => $imgfilename,
-                    'created_at' => now(),
-                    'xref' => $uuid
+                    'created_at' => now()
                 ]);
             }
 
@@ -84,7 +97,11 @@ class S3Controller extends Controller
     }
 
 
-    // View all uploaded images
+    /**
+     * Fetches and displays all uploaded images
+     *
+     * @return Factory|View
+     */
     public function allImages()
     {
 
@@ -98,26 +115,79 @@ class S3Controller extends Controller
     }
 
 
-    // View facial analysis page
+    /**
+     * Fetches and displays image data based on the given ID
+     *
+     * @param int $id The ID of the image entry
+     * @return Factory|View
+     */
     public function viewImage($id)
     {
-
-        //$imageData = s3files::findOrFail($id);
-
         $imageData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
             ->select('s3files.*')
-            ->get();
+            ->first();
+
+        if($imageData) {
+            $file_name = $imageData->img_filename;
+
+            $path = $this->transformPath($file_name);
+            if (Storage::disk('s3')->exists($path)) {
+                $contents = Storage::disk('s3')->get($path);
+                DB::table('s3files')
+                    ->where('s3files.id', '=', $id)
+                    ->update(['img_analysis' => $contents]);
+            }
+
+            $imageData = DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->select('s3files.*')
+                ->get();
+        }
 
         return view('view_image', compact('imageData'));
 
     }
 
 
-    // View news page
+    /**
+     * Transforms the given path by removing the 'images/' prefix and changing the file extension from .jpg to .txt
+     *
+     * @param string $originalPath The original path to be transformed
+     * @return array|string The transformed path
+     */
+    private function transformPath($originalPath): array|string
+    {
+        // Remove the 'images/' prefix and change the file extension from .jpg to .txt
+        $newPath = str_replace('images/', 'face-analyses/', $originalPath);
+        $newPath = substr_replace($newPath, '.txt', strrpos($newPath, '.'));
+
+        return $newPath;
+    }
+
+    /**
+     * Fetches and displays news data based on the given ID
+     *
+     * @param int $id The ID of the news entry
+     * @return Factory|View
+     */
     public function viewNews($id)
     {
 
+        $imageNewsData = DB::table('s3files')
+            ->where('s3files.id', '=', $id)
+            ->select('s3files.*')
+            ->first();
+
+        if(is_null($imageNewsData->img_chatgpt_title) && is_null($imageNewsData->img_chatgpt_content) && !is_null($imageNewsData->img_analysis)) {
+            $responseJson = $this->genNews($imageNewsData->img_analysis);
+
+            $news_title_content = $this->parseNews($responseJson);
+
+            DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
+        }
 
         $imageNewsData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
@@ -125,6 +195,56 @@ class S3Controller extends Controller
             ->get();
 
         return view('view_news', compact('imageNewsData'));
+
+    }
+
+    public function parseNews($responseJson)
+    {
+        // Accessing the content of the message directly
+        $content = $responseJson['choices'][0]['message']['content'];
+
+        // Splitting content to extract headline and body
+        $splitContent = explode("\n\n", $content, 3);
+        $headline = trim(explode(":", $splitContent[0], 2)[1], ' "');  // Remove extra quotes and whitespace
+        $body = $splitContent[2];  // The body starts after the second "\n\n"
+
+        print_r($responseJson);
+
+        return [
+            'headline' => $headline,
+            'body' => $body
+        ];
+    }
+    /**
+     * Generates news using the OpenAI API.
+     *
+     * @param string $data The prompt for generating news.
+     * @return array|false The generated news as an associative array or false on failure.
+     */
+    private function genNews($data) {
+
+        $apiSecret = env('API_SECRET', 'default-secret');
+
+        $client = new Client([
+            'base_uri' => 'https://api.openai.com/v1/',
+            'headers' => [
+                'Authorization' => 'Bearer ' . $apiSecret,
+                'Content-Type' => 'application/json',
+            ]
+        ]);
+
+        $response = $client->post('https://api.openai.com/v1/chat/completions', [
+            'json' => [
+                'model' => 'gpt-4',
+                'messages' => [
+                    ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo. Always separate title and content with a colon"]
+                ],
+                'max_tokens' => 3000
+            ]
+        ]);
+
+        $body = $response->getBody();
+        return json_decode($body, true);
 
     }
 
