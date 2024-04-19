@@ -5,7 +5,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                   
+
 
                 <div class="page-content">
 
@@ -19,7 +19,7 @@
           <div class="card-header">
             <div class="d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center">
-                <img class="img-xs rounded-circle" src="{{ asset('../img/rekoscan_logo_icon.png') }}" class="block h-9 w-auto fill-current " alt="">													
+                <img class="img-xs rounded-circle" src="{{ asset('../img/rekoscan_logo_icon.png') }}" class="block h-9 w-auto fill-current " alt="">
                 <div class="ms-2 text-white">
                   <p>RekoScan News</p>
 
@@ -40,12 +40,12 @@
             </div>
           </div>
           <div class="card-body"  align="center">
-          <p class="card-title text-white">{{ $item->img_name }} - Title from ChatGPT Placeholder</p>
-            <p class="mb-3 tx-14 text-white" >Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus minima delectus nemo unde quae recusandae assumenda.</p>
-            
+          <p class="card-title text-white">{{ $item->img_chatgpt_title }}</p>
+            <p class="mb-3 tx-14 text-white" ></p>
+
             <img class="img-fluid" src="{{ asset('upload/s3/'.$item->img_localfile) }}" alt="">
 </br>
-            <p class="mb-3 tx-14 text-white">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Accusamus minima delectus nemo unde quae recusandae assumenda.</p>
+            <p class="mb-3 tx-14 text-white">{{ $item->img_chatgpt_content }}</p>
           </div>
           <div class="card-footer">
             <div class="d-flex post-actions">
@@ -68,10 +68,10 @@
 
     </div>
   </div>
-  @endforeach 
-  <!-- left wrapper end -->    
-  
-  
+  @endforeach
+  <!-- left wrapper end -->
+
+
 
 </div>
 
@@ -82,7 +82,7 @@
             </div>
             <footer class="py-16 text-center text-sm text-black dark:text-white/70">
                         Developed by Team RekoScan | Laravel v{{ Illuminate\Foundation\Application::VERSION }} (PHP v{{ PHP_VERSION }})
-                    </footer>               
+                    </footer>
         </div>
     </div>
 </x-app-layout>
