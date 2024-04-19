@@ -179,7 +179,7 @@ class S3Controller extends Controller
             ->select('s3files.*')
             ->first();
 
-        if(!$imageNewsData->img_chatgpt_title && !$imageNewsData->img_chatgpt_content && $imageNewsData->img_analysis) {
+        if(is_null($imageNewsData->img_chatgpt_title) && is_null($imageNewsData->img_chatgpt_content) && !is_null($imageNewsData->img_analysis)) {
             $responseJson = $this->genNews($imageNewsData->img_analysis);
 
             $news_title_content = $this->parseNews($responseJson);
@@ -208,6 +208,8 @@ class S3Controller extends Controller
         $headline = trim(explode(":", $splitContent[0], 2)[1], ' "');  // Remove extra quotes and whitespace
         $body = $splitContent[2];  // The body starts after the second "\n\n"
 
+        print_r($responseJson);
+
         return [
             'headline' => $headline,
             'body' => $body
@@ -223,7 +225,7 @@ class S3Controller extends Controller
         $client = new Client([
             'base_uri' => 'https://api.openai.com/v1/',
             'headers' => [
-                'Authorization' => 'Bearer ' . env('API_KEY'),
+                'Authorization' => 'Bearer sk-proj-4TuxJsSBXWU56LGELDDoT3BlbkFJaxMemwz0D6s2XmeJVtiI',
                 'Content-Type' => 'application/json',
             ]
         ]);
@@ -232,7 +234,7 @@ class S3Controller extends Controller
             'json' => [
                 'model' => 'gpt-4',
                 'messages' => [
-                    ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo"]
+                    ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo. Always separate title and content with a colon"]
                 ],
                 'max_tokens' => 3000
             ]
