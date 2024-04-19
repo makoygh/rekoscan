@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use App\Models\s3files;
 use Illuminate\Support\Facades\Auth;
@@ -10,12 +12,24 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use GuzzleHttp\Client;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
-
+/**
+ * Uploads an image file to the S3 bucket and saves the file details to the database.
+ *
+ * @param Request $request The request object.
+ * @return \Illuminate\Http\RedirectResponse The redirect response.
+ */
 class S3Controller extends Controller
 {
 
-// Save the files details to DB and upload the image to S3 bucket and a local copy
+    /**
+     * Uploads an image file to the S3 bucket and saves the file details to the database
+     *
+     * @param Request $request The HTTP request containing the image file and associated data
+     * @return RedirectResponse
+     */
     public function uploadToS3(Request $request)
     {
 
@@ -83,7 +97,11 @@ class S3Controller extends Controller
     }
 
 
-    // View all uploaded images
+    /**
+     * Fetches and displays all uploaded images
+     *
+     * @return Factory|View
+     */
     public function allImages()
     {
 
@@ -97,13 +115,14 @@ class S3Controller extends Controller
     }
 
 
-    // View facial analysis page
+    /**
+     * Fetches and displays image data based on the given ID
+     *
+     * @param int $id The ID of the image entry
+     * @return Factory|View
+     */
     public function viewImage($id)
     {
-
-        //$imageData = s3files::findOrFail($id);
-
-
         $imageData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
             ->select('s3files.*')
@@ -131,6 +150,12 @@ class S3Controller extends Controller
     }
 
 
+    /**
+     * Transforms the given path by removing the 'images/' prefix and changing the file extension from .jpg to .txt
+     *
+     * @param string $originalPath The original path to be transformed
+     * @return array|string The transformed path
+     */
     private function transformPath($originalPath): array|string
     {
         // Remove the 'images/' prefix and change the file extension from .jpg to .txt
@@ -140,10 +165,27 @@ class S3Controller extends Controller
         return $newPath;
     }
 
-    // View news page
+    /**
+     * Fetches and displays news data based on the given ID
+     *
+     * @param int $id The ID of the news entry
+     * @return Factory|View
+     */
     public function viewNews($id)
     {
 
+        $imageNewsData = DB::table('s3files')
+            ->where('s3files.id', '=', $id)
+            ->select('s3files.*')
+            ->first();
+
+        if(!$imageNewsData->img_chatgpt_title && !$imageNewsData->img_chatgpt_content && !$imageNewsData->img_analysis) {
+            $news = $this->genNews($imageNewsData->img_analysis);
+
+            DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->update(['img_chatgpt_content' => $news, 'img_chatgpt_title' => 'test title: change me']);
+        }
 
         $imageNewsData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
@@ -151,6 +193,31 @@ class S3Controller extends Controller
             ->get();
 
         return view('view_news', compact('imageNewsData'));
+
+    }
+
+
+    /**
+     * Generates news using the OpenAI API.
+     *
+     * @param string $data The prompt for generating news.
+     * @return array|false The generated news as an associative array or false on failure.
+     */
+    private function genNews($data) {
+        $client = new Client();
+        $response = $client->post('https://chat.openai.com/g/g-7i6yyOBxg-is215proj', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                'Content-Type' => 'application/json',
+            ],
+            'json' => [
+                'prompt' => $data,
+                'max_tokens' => 3000,
+            ],
+        ]);
+
+        $body = $response->getBody();
+        return json_decode($body, true);
 
     }
 
