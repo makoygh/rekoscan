@@ -179,12 +179,14 @@ class S3Controller extends Controller
             ->select('s3files.*')
             ->first();
 
-        if(!$imageNewsData->img_chatgpt_title && !$imageNewsData->img_chatgpt_content && !$imageNewsData->img_analysis) {
-            $news = $this->genNews($imageNewsData->img_analysis);
+        if(!$imageNewsData->img_chatgpt_title && !$imageNewsData->img_chatgpt_content && $imageNewsData->img_analysis) {
+            $responseJson = $this->genNews($imageNewsData->img_analysis);
+
+            $news_title_content = $this->parseNews($responseJson);
 
             DB::table('s3files')
                 ->where('s3files.id', '=', $id)
-                ->update(['img_chatgpt_content' => $news, 'img_chatgpt_title' => 'test title: change me']);
+                ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
         }
 
         $imageNewsData = DB::table('s3files')
@@ -196,7 +198,21 @@ class S3Controller extends Controller
 
     }
 
+    public function parseNews($responseJson)
+    {
+        // Accessing the content of the message directly
+        $content = $responseJson['choices'][0]['message']['content'];
 
+        // Splitting content to extract headline and body
+        $splitContent = explode("\n\n", $content, 3);
+        $headline = trim(explode(":", $splitContent[0], 2)[1], ' "');  // Remove extra quotes and whitespace
+        $body = $splitContent[2];  // The body starts after the second "\n\n"
+
+        return [
+            'headline' => $headline,
+            'body' => $body
+        ];
+    }
     /**
      * Generates news using the OpenAI API.
      *
@@ -204,16 +220,22 @@ class S3Controller extends Controller
      * @return array|false The generated news as an associative array or false on failure.
      */
     private function genNews($data) {
-        $client = new Client();
-        $response = $client->post('https://chat.openai.com/g/g-7i6yyOBxg-is215proj', [
+        $client = new Client([
+            'base_uri' => 'https://api.openai.com/v1/',
             'headers' => [
-                'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                'Authorization' => 'Bearer ' . env('API_KEY'),
                 'Content-Type' => 'application/json',
-            ],
+            ]
+        ]);
+
+        $response = $client->post('https://api.openai.com/v1/chat/completions', [
             'json' => [
-                'prompt' => $data,
-                'max_tokens' => 3000,
-            ],
+                'model' => 'gpt-4',
+                'messages' => [
+                    ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo"]
+                ],
+                'max_tokens' => 3000
+            ]
         ]);
 
         $body = $response->getBody();
