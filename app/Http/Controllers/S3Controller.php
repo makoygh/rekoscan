@@ -222,10 +222,13 @@ class S3Controller extends Controller
      * @return array|false The generated news as an associative array or false on failure.
      */
     private function genNews($data) {
+
+        $apiSecret = env('API_SECRET', 'default-secret');
+
         $client = new Client([
             'base_uri' => 'https://api.openai.com/v1/',
             'headers' => [
-                'Authorization' => 'Bearer sk-proj-4TuxJsSBXWU56LGELDDoT3BlbkFJaxMemwz0D6s2XmeJVtiI',
+                'Authorization' => 'Bearer ' . $apiSecret,
                 'Content-Type' => 'application/json',
             ]
         ]);
