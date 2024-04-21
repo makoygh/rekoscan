@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\s3files;
 use Illuminate\Support\Facades\Auth;
 
-//use Aws\S3\S3Client;
+
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -51,6 +51,7 @@ class S3Controller extends Controller
             if ($request->hasFile('fileName')) {
                 $imgfile = $request->file('fileName');
                 $imgfilename = $uuid . '_' . date('YmdHi') . '_' . $imgfile->getClientOriginalName();
+                $imgfilename = str_replace(' ', '_', $imgfilename);
 
                 // upload to S3 bucket
                 $imgpath = $request->file('fileName')->storeAs(
@@ -61,7 +62,7 @@ class S3Controller extends Controller
 
                 s3files::insert([
                     'img_name' => $request->imgName,
-                    'img_filename' => $imgpath,
+                    'img_filename' => $imgfilename,
                     'img_localfile' => $imgfilename,
                     'created_at' => now()
                 ]);
@@ -134,21 +135,77 @@ class S3Controller extends Controller
             $path = $this->transformPath($file_name);
             if (Storage::disk('s3')->exists($path)) {
                 $contents = Storage::disk('s3')->get($path);
+
+                // save the facial analysis data to DB
                 DB::table('s3files')
                     ->where('s3files.id', '=', $id)
                     ->update(['img_analysis' => $contents]);
+
+            } else {
+
+                $notification = array(
+                    'message' => 'Facial analysis data is not available. Please try again later.',
+                    'alert-type' => 'error'
+                );
+
+                return redirect()->back()->with($notification);
+
             }
 
+            // fetch updated data
             $imageData = DB::table('s3files')
                 ->where('s3files.id', '=', $id)
                 ->select('s3files.*')
                 ->get();
+
+
+            // extract face analysis data
+            $faceDetail = json_decode($contents, true);
+           // dd($faceDetail[0]);
+
+            $dataAgeRangeLow = $faceDetail[0]['AgeRange']['Low'];
+            $dataAgeRangeHigh = $faceDetail[0]['AgeRange']['High'];
+            $dataGender = $faceDetail[0]['Gender']['Value'];
+            $dataSmile= $this->convertToYesOrNo($faceDetail[0]['Smile']['Value']);
+            $dataEyeglasses = $this->convertToYesOrNo($faceDetail[0]['Eyeglasses']['Value']);
+            $dataFaceOccluded = $this->convertToYesOrNo($faceDetail[0]['FaceOccluded']['Value']);
+            $dataEmotions = $faceDetail[0]['Emotions'][0]['Type'];
+            $dataSunglasses = $this->convertToYesOrNo($faceDetail[0]['Sunglasses']['Value']);
+            $dataBeard = $this->convertToYesOrNo($faceDetail[0]['Beard']['Value']);
+            $dataMustache = $this->convertToYesOrNo($faceDetail[0]['Mustache']['Value']);
+            $dataEyesOpen = $this->convertToYesOrNo($faceDetail[0]['EyesOpen']['Value']);
+            $dataMouthOpen = $this->convertToYesOrNo($faceDetail[0]['MouthOpen']['Value']);
+
+
+           
         }
 
-        return view('view_image', compact('imageData'));
+        return view('view_image', ['imageData'=>$imageData,
+         'gender'=>$dataGender,
+         'smile'=>$dataSmile,
+         'eyeglasses'=>$dataEyeglasses,
+         'faceoccluded'=>$dataFaceOccluded, 
+         'emotions'=>$dataEmotions,
+         'agelow'=>$dataAgeRangeLow,
+         'agehigh'=>$dataAgeRangeHigh,
+         'sunglasses'=>$dataSunglasses,
+         'beard'=>$dataBeard,
+         'mustache'=>$dataMustache,
+         'eyesopen'=>$dataEyesOpen,
+         'mouthopen'=>$dataMouthOpen
+        ]);
 
     }
 
+    private function convertToYesOrNo($value): array|string
+    {
+       $result = 'No';
+       if($value == 1){
+        $result = 'Yes';
+       }
+
+        return $result;
+    }
 
     /**
      * Transforms the given path by removing the 'images/' prefix and changing the file extension from .jpg to .txt
@@ -159,7 +216,8 @@ class S3Controller extends Controller
     private function transformPath($originalPath): array|string
     {
         // Remove the 'images/' prefix and change the file extension from .jpg to .txt
-        $newPath = str_replace('images/', 'face-analyses/', $originalPath);
+        //$newPath = str_replace('images/', 'face-analyses/', $originalPath);
+        $newPath = 'face-analyses/' . $originalPath;
         $newPath = substr_replace($newPath, '.txt', strrpos($newPath, '.'));
 
         return $newPath;
