@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 use GuzzleHttp\Client;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
+use GeminiAPI\Laravel\Facades\Gemini;
+
 /**
  * Uploads an image file to the S3 bucket and saves the file details to the database.
  *
@@ -129,20 +131,39 @@ class S3Controller extends Controller
             ->select('s3files.*')
             ->first();
 
-        if($imageData) {
+       
+
+        //if($imageData) {
+        if($imageData) { // start
             $file_name = $imageData->img_filename;
+            $imgAnalysisData =  $imageData->img_analysis;
+            $imgGeminiData = $imageData->img_chatgpt_title;
+
 
             $path = $this->transformPath($file_name);
+            // read and store only the facial analysis once
             if (Storage::disk('s3')->exists($path)) {
-                $contents = Storage::disk('s3')->get($path);
 
-                // save the facial analysis data to DB
-                DB::table('s3files')
-                    ->where('s3files.id', '=', $id)
-                    ->update(['img_analysis' => $contents]);
+                if ($imgAnalysisData == null){
+                    $contents = Storage::disk('s3')->get($path);
+
+                    // save the facial analysis data to DB
+                    DB::table('s3files')
+                        ->where('s3files.id', '=', $id)
+                        ->update(['img_analysis' => $contents]);
+                }
+
+                // fetched updated data
+                $imageData = DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->select('s3files.*')
+                ->first();
+
+                $imgAnalysisData =  $imageData->img_analysis;
 
             } else {
 
+                // return message that data is not yet available
                 $notification = array(
                     'message' => 'Facial analysis data is not available. Please try again later.',
                     'alert-type' => 'error'
@@ -152,16 +173,12 @@ class S3Controller extends Controller
 
             }
 
-            // fetch updated data
-            $imageData = DB::table('s3files')
-                ->where('s3files.id', '=', $id)
-                ->select('s3files.*')
-                ->get();
+
 
 
             // extract face analysis data
-            $faceDetail = json_decode($contents, true);
-           // dd($faceDetail[0]);
+            $faceDetail = json_decode($imgAnalysisData, true);
+            // dd($faceDetail[0]);
 
             $dataAgeRangeLow = $faceDetail[0]['AgeRange']['Low'];
             $dataAgeRangeHigh = $faceDetail[0]['AgeRange']['High'];
@@ -176,9 +193,94 @@ class S3Controller extends Controller
             $dataEyesOpen = $this->convertToYesOrNo($faceDetail[0]['EyesOpen']['Value']);
             $dataMouthOpen = $this->convertToYesOrNo($faceDetail[0]['MouthOpen']['Value']);
 
+            if($imgGeminiData == null){
+                $promptSmile = ' who is not smiling ';
+                if ($dataSmile=='Yes') {
+                    $promptSmile = ' who is smiling ';
+                }
 
+                $promptEG = ' , with no eyeglass ';
+                if ($dataEyeglasses=='Yes') {
+                    $promptEG = ', wearing an eyeglass ';
+                }  
+                
+                $promptFO = ' face is not occluded ';
+                if ($dataFaceOccluded=='Yes') {
+                    $promptFO = ', with an occluded face ';
+                }    
+
+                $promptSG = ' , with no sunglass ';
+                if ($dataSunglasses=='Yes') {
+                    $promptSG = ', wearing a sunglass ';
+                } 
+
+                $promptBeard = ' , having no beard ';
+                if ($dataSmile=='Yes') {
+                    $promptBeard = ', with a beard ';
+                } 
+
+                $promptMustache = ' , having no mustache ';
+                if ($dataMustache=='Yes') {
+                    $promptMustache = ', with a mustache ';
+                } 
+
+                $promptOE = ' , eyes are closed ';
+                if ($dataEyesOpen=='Yes') {
+                    $promptOE = ' , eyes are open ';
+                } 
+
+                $promptMO = ' , mouth is closed ';
+                if ($dataMouthOpen=='Yes') {
+                    $promptMO = ' , and mouth is open ';
+                } 
+
+                $promptAge = ', with an age between ' . $dataAgeRangeLow . ' to ' .  $dataAgeRangeHigh;
+                $promptEmotions = ', with a ' . $dataEmotions . ' emotions ';
+
+                $prompt = 'Based on the following analysis: A ' . $dataGender . ' person ' . $promptSmile;
+                $prompt = $prompt . $promptEG . $promptFO . $promptSG . $promptAge . $promptEmotions . $promptBeard . $promptMustache;
+                $prompt = $prompt . $promptOE . $promptMO . ' ';
+
+
+                $promptTitle =  $prompt . ', give me the best title for this fictional news about that person.';;
+                $promptContent = $prompt . ', create a fictional news about that person in 500 words. Not need for a title.';
+
+                //dd($prompt);
+
+                $responseTitle = $this->generateNewsGemini($promptTitle);
+                $responseContent = $this->generateNewsGemini($promptContent);
+
+                //dd($responseTitle, $responseContent);
+
+                //save the News Article to DB
+                // save the facial analysis data to DB
+                DB::table('s3files')
+                ->where('s3files.id', '=', $id)
+                ->update(['img_chatgpt_title' => $responseTitle,
+                          'img_chatgpt_content' => $responseContent,
+                        ]);
+
+            }   
+
+            // fetch updated data
+            $imageData = DB::table('s3files')
+            ->where('s3files.id', '=', $id)
+            ->select('s3files.*')
+            ->get();            
+             
+            
            
-        }
+        } else {
+
+            // return message that data is not yet available
+            $notification = array(
+                'message' => 'Data do not exist.',
+                'alert-type' => 'error'
+            );
+
+            return redirect()->back()->with($notification);
+
+        } // end 
 
         return view('view_image', ['imageData'=>$imageData,
          'gender'=>$dataGender,
@@ -237,7 +339,7 @@ class S3Controller extends Controller
             ->select('s3files.*')
             ->first();
 
-        if(is_null($imageNewsData->img_chatgpt_title) && is_null($imageNewsData->img_chatgpt_content) && !is_null($imageNewsData->img_analysis)) {
+        /*if(is_null($imageNewsData->img_chatgpt_title) && is_null($imageNewsData->img_chatgpt_content) && !is_null($imageNewsData->img_analysis)) {
             $responseJson = $this->genNews($imageNewsData->img_analysis);
 
             $news_title_content = $this->parseNews($responseJson);
@@ -245,7 +347,7 @@ class S3Controller extends Controller
             DB::table('s3files')
                 ->where('s3files.id', '=', $id)
                 ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
-        }
+        }*/
 
         $imageNewsData = DB::table('s3files')
             ->where('s3files.id', '=', $id)
@@ -303,6 +405,16 @@ class S3Controller extends Controller
 
         $body = $response->getBody();
         return json_decode($body, true);
+
+    }
+
+
+    // Generate news article using Google Gemini AI
+    private function generateNewsGemini($data){
+
+        $response = Gemini::generateText($data);
+
+        return  $response;
 
     }
 
