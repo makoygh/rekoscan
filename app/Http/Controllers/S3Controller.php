@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use App\Models\s3files;
 use Illuminate\Support\Facades\Auth;
 
-
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -16,6 +15,8 @@ use GuzzleHttp\Client;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 use GeminiAPI\Laravel\Facades\Gemini;
+use OpenAI\Laravel\Facades\OpenAI;
+Use Exception;
 
 /**
  * Uploads an image file to the S3 bucket and saves the file details to the database.
@@ -242,23 +243,78 @@ class S3Controller extends Controller
                 $prompt = $prompt . $promptOE . $promptMO . ' ';
 
 
-                $promptTitle =  $prompt . ', give me the best title for this fictional news about that person.';;
-                $promptContent = $prompt . ', create a fictional news about that person in 500 words. Not need for a title.';
+                $promptTitle =  $prompt . ', give me the best title for this fictional news article about that person.';;
+                $promptContent = $prompt . ', create a fictional news article about that person in 500 words. Not need for a title.';
 
                 //dd($prompt);
+                // Gemini AI
+                //$responseTitle = $this->generateNewsGemini($promptTitle);
+                //$responseContent = $this->generateNewsGemini($promptContent);
 
-                $responseTitle = $this->generateNewsGemini($promptTitle);
-                $responseContent = $this->generateNewsGemini($promptContent);
+                //OpenAI prompt
+                $promptOAI = $prompt . ' , create a fictional news article about that person in 500 words. Always separate title and content with a colon';
+                
+                try{
+                    if(is_null($imgGeminiData) && !is_null($imgAnalysisData)) {
+                        //$responseJson = $this->generateNewsOpenAI($promptOAI);
+                        $responseJson = $this->genNews($imgAnalysisData);
+
+                        // check if there is an error from OpenAI
+                        if(Str::contains($responseJson, 'Error:')){
+
+                            // user Gemini AI instead
+                            $responseTitle = $this->generateNewsGemini($promptTitle);
+                            $responseContent = $this->generateNewsGemini($promptContent);
+
+                            //save the News Article to DB from Gemini AI
+                            DB::table('s3files')
+                            ->where('s3files.id', '=', $id)
+                            ->update(['img_chatgpt_title' => $responseTitle,
+                                    'img_chatgpt_content' => $responseContent,
+                                    ]);                            
+
+                            // return error message about OpenAI
+                            $notification = array(
+                                'message' => 'Error encountered when using OpenAI. Switched to Gemini AI to generate the news article.' ,
+                                'alert-type' => 'warning'
+                            );
+
+                            return redirect()->back()->with($notification);
+
+                         }
+
+                        
+                         // process the data to store to DB
+                        $news_title_content = $this->parseNews($responseJson);
+
+                        DB::table('s3files')
+                            ->where('s3files.id', '=', $id)
+                            ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
+
+
+                    }
+
+                } catch (Exception $error) {
+
+                    // return error message about OpenAI
+                    $notification = array(
+                        'message' => 'Error connecting to OpenAI.',
+                        'alert-type' => 'error'
+                    );
+
+                    return redirect()->back()->with($notification);
+                }
 
                 //dd($responseTitle, $responseContent);
 
                 //save the News Article to DB
-                // save the facial analysis data to DB
+               /* 
                 DB::table('s3files')
                 ->where('s3files.id', '=', $id)
                 ->update(['img_chatgpt_title' => $responseTitle,
                           'img_chatgpt_content' => $responseContent,
                         ]);
+                */
 
             }   
 
@@ -392,16 +448,19 @@ class S3Controller extends Controller
                 'Content-Type' => 'application/json',
             ]
         ]);
-
-        $response = $client->post('https://api.openai.com/v1/chat/completions', [
-            'json' => [
-                'model' => 'gpt-4',
-                'messages' => [
-                    ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo. Always separate title and content with a colon"]
-                ],
-                'max_tokens' => 3000
-            ]
-        ]);
+        try{
+            $response = $client->post('https://api.openai.com/v1/chat/completions', [
+                'json' => [
+                    'model' => 'gpt-3.5-turbo',
+                    'messages' => [
+                        ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo. Always separate title and content with a colon"]
+                    ],
+                    'max_tokens' => 3000
+                ]
+            ]);
+        } catch (Exception $error) {
+            return 'Error: ' . $error;
+        }
 
         $body = $response->getBody();
         return json_decode($body, true);
@@ -415,6 +474,26 @@ class S3Controller extends Controller
         $response = Gemini::generateText($data);
 
         return  $response;
+
+    }
+
+    // OpenAI / Laravel libraries
+    private function generateNewsOpenAI($data){
+
+        try{
+            $response = OpenAI::completions()->create([
+                'model' => 'gpt-3.5-turbo',
+                'messages' => [
+                    ['role' => 'user', 'content' => $data],
+                ],
+            ]);
+        } catch (Exception $error) {
+            return 'Error: ' . $error;
+        }
+
+        
+        $body = $response->getBody();
+        return json_decode($body, true);
 
     }
 
