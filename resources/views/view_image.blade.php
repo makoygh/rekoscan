@@ -101,48 +101,99 @@
         <p class="text-white">Image Name: {{ $item->img_name }}</p>
 
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Age Range:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Age Range/s:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">Low: {{ $agelow }} </p>
+          <p class="text-muted">High: {{ $agehigh }}</p>
+          @else
           <p class="text-muted">Between {{ $agelow }} to {{ $agehigh }}</p>
+          @endif
         </div>        
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Gender:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Gender/s:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $malecount }} males in the group.</p>
+          <p class="text-muted">Female: {{ $femalecount }}</p>          
+          
+          @else
           <p class="text-muted">{{ $gender }}</p>
+          @endif
         </div>
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Smiling:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Smile/s:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $smilingcount }} people smiling. </p>
+          <p class="text-muted">Not Smiling: {{ $notsmilingcount }}</p>     
+          @else
           <p class="text-muted">{{  $smile }}</p>
+          @endif
         </div>
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Eyeglasses:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Eyeglass/es:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $eyeglasscount }} people wearing eyeglasses. </p>
+          <p class="text-muted">Not Wearing Eyeglass/es: {{ $noeyeglasscount }}</p>   
+          @else
           <p class="text-muted">{{ $eyeglasses }}</p>
+          @endif
         </div>
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Sunglasses:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Sunglass/es:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $sunglasscount }} people wearing sunglasses. </p>
+          <p class="text-muted">Not Wearing Sunglass/es: {{ $nosunglasscount }}</p>  
+          @else
           <p class="text-muted">{{ $sunglasses }}</p>
+          @endif
         </div>
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Face Occluded:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $occfacecount }} people that faces are occluded. </p>
+          <p class="text-muted">Face Not Occluded: {{ $notoccfacecount }}</p> 
+          @else
           <p class="text-muted">{{ $faceoccluded }}</p>
+          @endif
         </div>
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Beard:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $beardcount }} people with beard. </p>
+          <p class="text-muted">Without Beard: {{ $nobeardcount }}</p> 
+          @else
           <p class="text-muted">{{ $beard }}</p>
+          @endif
         </div>     
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">With Mustache:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $mustachecount }} people with mustache. </p>
+          <p class="text-muted">Without Mustache: {{ $nomustachecount }}</p> 
+          @else
           <p class="text-muted">{{ $mustache }}</p>
+          @endif
         </div> 
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Eyes Open:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $openeyescount }} people with eyes open. </p>
+          <p class="text-muted">Eyes Close: {{ $closeeyescount }}</p> 
+          @else
           <p class="text-muted">{{ $eyesopen }}</p>
+          @endif
         </div>      
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Mouth Open:</label>
+          @if ($facecount > 1)
+          <p class="text-muted">There are {{ $openmouthcount }} peope with mouth open.</p>
+          <p class="text-muted">Close Mouth: {{ $closemouthcount }}</p> 
+          @else          
           <p class="text-muted">{{ $mouthopen }}</p>
+          @endif
         </div>   
         <div class="mt-3">
           <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Emotions:</label>
-          <p class="text-muted">{{ $emotions }}</p>
+          <p class="text-muted">Emotions varies like {{ $emotions }}</p>
         </div>
         
         <div class="mt-3 d-flex social-links">
