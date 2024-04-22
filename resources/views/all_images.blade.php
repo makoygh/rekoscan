@@ -37,8 +37,8 @@
         <td>{{ $item->img_filename }}</td>
         <td>{{ $item->created_at }}</td>
         <td>
-        <a href="{{ route('view.image',$item->id) }}" class="btn btn-inverse-warning">View Facial Analysis</a>
-        <a href="{{ route('view.news',$item->id) }}"  class="btn btn-inverse-danger" target=”_blank”>View News</a>
+        <a href="{{ route('view.image',$item->id) }}" class="btn btn-inverse-warning">View Facial Analysis and News</a>
+        <!--<a href="{{ route('view.news',$item->id) }}"  class="btn btn-inverse-danger" target=”_blank”>View News</a>-->
 
         </td>
       </tr>
