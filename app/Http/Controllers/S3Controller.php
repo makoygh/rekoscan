@@ -354,53 +354,62 @@ class S3Controller extends Controller
                 try{
                     if(is_null($imgGeminiData) && !is_null($imgAnalysisData)) {
                         //$responseJson = $this->generateNewsOpenAI($promptOAI);
-                        $responseJson = $this->genNews($imgAnalysisData);
-
+                        //$responseJson = $this->genNews($imgAnalysisData);
+                        $responseJson = $this->generateNewsOAI($imgAnalysisData);
+                        
+                        if (!is_array($responseJson)) {
                         // check if there is an error from OpenAI
-                        if(Str::contains($responseJson, 'Error:')){
+                            if(Str::contains($responseJson, 'error') || Str::contains($responseJson, 'invalid')){
 
-                            // use Gemini AI instead
-                            $responseTitle = $this->generateNewsGemini($promptTitle);
+                                // use Gemini AI instead
+                                $responseTitle = $this->generateNewsGemini($promptTitle);
 
-                            if(Str::contains($responseTitle, 'Error:')){
-                                // return error message about Gemini
+                                if(Str::contains($responseTitle, 'error')){
+                                    // return error message about Gemini
+                                    $notification = array(
+                                        'message' => 'Error encountered when using either OpenAI and Gemini. Please try again later.' ,
+                                        'alert-type' => 'error'
+                                    );
+
+                                    return redirect()->back()->with($notification);
+
+                                }
+                         
+
+                                
+                                $responseContent = $this->generateNewsGemini($promptContent);
+
+                                //save the News Article to DB from Gemini AI
+                                DB::table('s3files')
+                                ->where('s3files.id', '=', $id)
+                                ->update(['img_chatgpt_title' => $responseTitle,
+                                        'img_chatgpt_content' => $responseContent,
+                                        ]);                            
+
+                                // return error message about OpenAI
                                 $notification = array(
-                                    'message' => 'Error encountered when using Gemini. Please try again later.' ,
+                                    'message' => 'Error encountered when using OpenAI. Switched to Gemini AI to generate the news article.' ,
                                     'alert-type' => 'warning'
                                 );
 
-                                return redirect()->back()->with($notification);
+                                //return redirect()->back()->with($notification);
 
                             }
 
+                        } else {// end of is_array()
 
-                            $responseContent = $this->generateNewsGemini($promptContent);
+                            // if OpenAI is ok, save the process the data to store to DB
+                            $news_title_content = $this->parseNews($responseJson);
 
-                            //save the News Article to DB from Gemini AI
                             DB::table('s3files')
-                            ->where('s3files.id', '=', $id)
-                            ->update(['img_chatgpt_title' => $responseTitle,
-                                    'img_chatgpt_content' => $responseContent,
-                                    ]);                            
+                                ->where('s3files.id', '=', $id)
+                                ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
 
-                            // return error message about OpenAI
                             $notification = array(
-                                'message' => 'Error encountered when using OpenAI. Switched to Gemini AI to generate the news article.' ,
-                                'alert-type' => 'warning'
+                                'message' => 'News article successfully generated.' ,
+                                'alert-type' => 'success'
                             );
-
-                            return redirect()->back()->with($notification);
-
-                         }
-
-                        
-                         // process the data to store to DB
-                        $news_title_content = $this->parseNews($responseJson);
-
-                        DB::table('s3files')
-                            ->where('s3files.id', '=', $id)
-                            ->update(['img_chatgpt_content' => $news_title_content['body'], 'img_chatgpt_title' => $news_title_content['headline']]);
-
+                        }
 
                     }
 
@@ -409,11 +418,11 @@ class S3Controller extends Controller
                     // use Gemini AI instead
                     $responseTitle = $this->generateNewsGemini($promptTitle);
 
-                    if(Str::contains($responseTitle, 'Error:')){
+                    if(Str::contains($responseTitle, 'error')){
                         // return error message about Gemini
                         $notification = array(
-                            'message' => 'Error encountered when using Gemini. Please try again later.' ,
-                            'alert-type' => 'warning'
+                            'message' => 'Error encountered when using either OpenAI and Gemini. Please try again later.' ,
+                            'alert-type' => 'error'
                         );
 
                         return redirect()->back()->with($notification);
@@ -432,23 +441,14 @@ class S3Controller extends Controller
                             
                     // return error message about OpenAI
                     $notification = array(
-                        'message' => 'Error connecting to OpenAI. Switching to Gemini AI.',
-                        'alert-type' => 'error'
+                        'message' => 'Error connecting to OpenAI. Switched to Gemini AI.',
+                        'alert-type' => 'warning'
                     );
 
-                    return redirect()->back()->with($notification);
+                    //return redirect()->back()->with($notification);
                 }
 
                 //dd($responseTitle, $responseContent);
-
-                //save the News Article to DB
-               /* 
-                DB::table('s3files')
-                ->where('s3files.id', '=', $id)
-                ->update(['img_chatgpt_title' => $responseTitle,
-                          'img_chatgpt_content' => $responseContent,
-                        ]);
-                */
 
             }   
 
@@ -578,7 +578,7 @@ class S3Controller extends Controller
         $headline = trim(explode(":", $splitContent[0], 2)[1], ' "');  // Remove extra quotes and whitespace
         $body = $splitContent[2];  // The body starts after the second "\n\n"
 
-        print_r($responseJson);
+        //print_r($responseJson);
 
         return [
             'headline' => $headline,
@@ -596,27 +596,31 @@ class S3Controller extends Controller
         $apiSecret = env('API_SECRET', 'default-secret');
 
         $client = new Client([
-            'base_uri' => 'https://api.openai.com/v1/',
+            //'base_uri' => 'https://api.openai.com/v1/',
+            'base_uri' => 'https://is215-openai.fics.store/v1/',
             'headers' => [
                 'Authorization' => 'Bearer ' . $apiSecret,
                 'Content-Type' => 'application/json',
             ]
         ]);
         try{
-            $response = $client->post('https://api.openai.com/v1/chat/completions', [
+            //$response = $client->post('https://api.openai.com/v1/chat/completions', [
+            $response = $client->post('https://is215-openai.fics.store/v1/chat/completions', [
                 'json' => [
                     'model' => 'gpt-3.5-turbo',
                     'messages' => [
+                        ['role' => 'system', 'content' => "You are a helpful assistant."],
                         ['role' => 'user', 'content' => "Based on the following analysis: $data, create fictional news about the person in the photo. Always separate title and content with a colon"]
                     ],
                     'max_tokens' => 3000
                 ]
             ]);
         } catch (Exception $error) {
-            return 'Error: ' . $error;
+            return 'error: ' . $error;
         }
-
+        //dd($response);
         $body = $response->getBody();
+        //dd($body);
         return json_decode($body, true);
 
     }
@@ -627,7 +631,7 @@ class S3Controller extends Controller
         try{
             $response = Gemini::generateText($data);
         } catch (Exception $error) {
-            return 'Error: ' . $error;
+            return 'error: ' . $error;
         }
 
         return  $response;
@@ -645,12 +649,66 @@ class S3Controller extends Controller
                 ],
             ]);
         } catch (Exception $error) {
-            return 'Error: ' . $error;
+            return 'error: ' . $error;
         }
 
         
         $body = $response->getBody();
         return json_decode($body, true);
+
+    }
+
+
+    // OpenAI using curl - API KEY from Prof.
+    private function generateNewsOAI($inputdata){
+
+        $apiSecret = env('API_SECRET', 'default-secret');
+        $apikeyfromUPOU =  env('API_FROM_UP',0);
+
+        //dd($apiSecret);
+
+        $data = array(
+            'model' => 'gpt-3.5-turbo',
+            'messages' => array(
+                array(
+                    'role' => 'system',
+                    'content' => 'You are a helpful assistant.'
+                ),
+                array(
+                    'role' => 'user',
+                    'content' => "Based on the following analysis: $inputdata, create a fictional news article about it in 500 words. Always separate title and content with a colon."
+                )
+            )
+        );
+        
+        $client = curl_init();
+        curl_setopt($client, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+        if($apikeyfromUPOU == 1){
+            curl_setopt($client, CURLOPT_URL, 'https://is215-openai.fics.store/v1/chat/completions');
+        }
+        
+        curl_setopt($client, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($client, CURLOPT_POST, 1);
+        curl_setopt($client, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($client, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiSecret
+        ));
+        
+        $response = curl_exec($client);
+        
+        if (curl_errno($client)) {
+            $error = curl_error($client);
+            curl_close($client);
+            return 'error:' . $error;
+
+        } else {
+            //dd($response);
+            curl_close($client);
+            return json_decode($response,true);
+        }
+        
+        
 
     }
 
