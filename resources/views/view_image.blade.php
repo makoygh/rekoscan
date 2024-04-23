@@ -120,7 +120,7 @@
           @endif
         </div>
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Smile/s:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Smile:</label>
           @if ($facecount > 1)
           <p class="text-muted">There are {{ $smilingcount }} people smiling. </p>
           <p class="text-muted">Not Smiling: {{ $notsmilingcount }}</p>     
@@ -192,8 +192,12 @@
           @endif
         </div>   
         <div class="mt-3">
-          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Emotions:</label>
+          <label class="tx-11 fw-bolder mb-0 text-uppercase text-white">Emotion/s:</label>
+          @if ($facecount > 1)
           <p class="text-muted">Emotions varies like {{ $emotions }}</p>
+          @else
+          <p class="text-muted">{{ $emotions }}</p>
+          @endif
         </div>
         
         <div class="mt-3 d-flex social-links">
